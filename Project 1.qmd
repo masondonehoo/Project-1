@@ -10,7 +10,16 @@ library(httr)
 library(jsonlite)
 library(dplyr)
 library(tidyr)
+library(tibble)
 ```
 
+## Task 1: Data Processing
+
+### Parsing Variable Values
+
+For this section, I am retrieving and parsing metadata for the Public Use Microdata Sample (PUMS) Census API across four years: 2021, 2022, 2023, and 2024. The variables we are interested in are `AGEP`, `GASP`, `GRPIP`, `JWAP`, `JWDP`, `JWMNP`, `PWGTP`, `FER`, `HHL`, `SCH`, `SCHL`, `SEX`, `ST` (for 2021, 2022)/`STATE` (for 2023, 2024), `REGION`, and `DIVISION`. The variables for each year will be stored in a list that will then be saved in a `.rds` file under the `docs` folder.
+
 ```{r}
+#Creating function to fetch and parse JSON variables for a single year
+
 ```
