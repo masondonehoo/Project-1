@@ -11,6 +11,7 @@ library(jsonlite)
 library(dplyr)
 library(tidyr)
 library(tibble)
+library(lubridate)
 ```
 
 ## Task 1: Data Processing
@@ -72,17 +73,41 @@ The *helper* function will be wrapped into a function that will query the API. T
 
 The valid values for year are: 2021, 2022, 2023, and 2024 
 
-For the numerical variables, `PWGTP` is always returned along with one other numerical variable: `AGEP`, `GASP`, `GRPIP`, `JWAP` (time), `JWDP` (time), and `JWMNP`. The function will turn variables into numeric values or time values when it is appropriate. For time values, a function is written to parse the time strings and returning the midpoint as a time value and NA for missing time values
+For the numerical variables, `PWGTP` is always returned along with one other numerical variable: `AGEP`, `GASP`, `GRPIP`, `JWAP` (time), `JWDP` (time), and `JWMNP`. The function will turn variables into numeric values or time values when it is appropriate. For time values (i.e., `JWAP` and `JWDP`), a function is written to parse the time strings and returning the midpoint as a time value and NA for missing time values
 
 For the categorical variables, the options for the user are: `FER`, `HHL`, `SCH`, `SCHL`, and `SEX` where `SEX` is the default as mentioned above. The function will turn variables into factors using the appropriate year's variable levels from my `.rds` file
 
-For the geography level, the options for the user are: `Region`, `Division`, or `State` with `State` being the default as mentioned above. The "All" geography level is not included as the data being returned is too large. Furthermore, the user is only able to choose one of these geography levels to subset on for a given API call. If the user specifies multiple geography levels, specifies "All", or provides a value that is not `REGION`, `DIVISION`, or `STATE`, the function will return an error.
+For the geography level, the options for the user are: `Region`, `Division`, or `State` with `State` being the default as mentioned above. The "All" geography level is not included as the data being returned is too large. Furthermore, the user is only able to choose one of these geography levels to subset on for a given API call. If the user specifies multiple geography levels, specifies "All", or provides a value that is not `Region`, `Division`, or `State`, the function will return an error.
 
 A default value for the `State`, `Region`, or `Division` being subset on is specified if the user does not specify one themselves. The allowable values for the geographies are in the `.rds` file that I created earlier, or the user can input an "all" option that would return all values of either the `State`, `Region`, or `Division`.
 
 Finally, a formatted tibble will be returned
 
-
+Creating the first helper function that converts the `GET()` response object into a `tibble`
 ```{r}
+#Creating function
+parse_api_response <- function(response){
+  #Parsing the JSON content from the API response object
+  raw <- fromJSON(rawToChar(response$content))
+  
+  #Converting data rows into a tibble, dropping the first row as those are the variable names, and using .name_repair = "minimal" to make sure the tibble doesn't create it's own column names
+  df <- as_tibble(raw[-1, , drop = F], .name_repair = "minimal")
+  
+  #Setting the column names to row 1
+  colnames(df) <- raw[1, ]
+  
+  #Returning the tibble
+  return(df)
+}
+```
 
+Now I am creating the second helper function that will parse time strings if the user inputs either `JWAP` or `JWDP` into midpoints in minutes
+```{r}
+parse_time_string <- function(time_str){
+  #Returns NA if the string is NA, if it is empty, or if it indicates a response that doesn't apply
+  if(is.na(time_str) || time_str == "NA" || time_str == "" || 
+     str_detect(time_str,"NA")){
+    return(NA_real_)
+  }
+}
 ```
