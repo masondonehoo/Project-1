@@ -21,5 +21,25 @@ For this section, I am retrieving and parsing metadata for the Public Use Microd
 
 ```{r}
 #Creating function to fetch and parse JSON variables for a single year
-
+parse_year_metadata <- function(year){
+  #Saves the url for whatever year the user is interested in
+  url <- paste0("api.census.gov/data/", year, 
+                "/acs/acs1/pums/variables.json")
+  
+  #Using GET() to contact the website and retrieve variable specifications
+  response <- GET(url)
+  
+  #Parsing the JSON using fromJSON(rawToChar(...), simplifyVector = F). We use simplifyVector = F to ensure we return a list 
+  parsed <- fromJSON(rawToChar(response$content), simplifyVector = F)
+  
+  #Extracting the `variables` element from the parsed data
+  vars_list <- parsed$variables
+  
+  #Creating a vector of the variables we are interested in
+  vars_needed <- c("AGEP", "GASP", "GRPIP", "JWAP", "JWDP", "JWMNP", "PWGTP",
+                   "FER", "SCH", "SCHL", "SEX", "ST", "STATE", "REGION", 
+                   "Division")
+  
+  #Subsetting vars_list to get only the variables we are interested in from vars_needed
+}
 ```
