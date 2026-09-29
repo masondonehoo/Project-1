@@ -12,6 +12,7 @@ library(dplyr)
 library(tidyr)
 library(tibble)
 library(lubridate)
+library(tidyverse)
 ```
 
 ## Task 1: Data Processing
@@ -67,13 +68,13 @@ saveRDS(all_years, file = "data/pums_variables.rds")
 
 ### Parsing API Data
 
-This function focuses on querying the PUMS API and returning a formatted tibble. I will write a *helper* function to take what is returned by `GET()` and turn it into a formatted `tibble`. 
+This function focuses on querying the PUMS API and returning a formatted tibble. I will first write a *helper* function to take what is returned by `GET()` and turn it into a formatted `tibble`. 
 
 The *helper* function will be wrapped into a function that will query the API. The function will have the following default values: survey year `2024`, the numerical variables `AGEP` and `PWGTP`, the categorical variable `SEX`, and geography level `State`. 
 
 The valid values for year are: 2021, 2022, 2023, and 2024 
 
-For the numerical variables, `PWGTP` is always returned along with one other numerical variable: `AGEP`, `GASP`, `GRPIP`, `JWAP` (time), `JWDP` (time), and `JWMNP`. The function will turn variables into numeric values or time values when it is appropriate. For time values (i.e., `JWAP` and `JWDP`), a function is written to parse the time strings and returning the midpoint as a time value and NA for missing time values
+For the numerical variables, `PWGTP` is always returned along with one other numerical variable: `AGEP`, `GASP`, `GRPIP`, `JWAP` (time), `JWDP` (time), and `JWMNP`. The function will turn variables into numeric values or time values when it is appropriate. For time values (i.e., `JWAP` and `JWDP`), a helper function is written to parse the time strings and return the midpoint as a time value and NA for missing time values
 
 For the categorical variables, the options for the user are: `FER`, `HHL`, `SCH`, `SCHL`, and `SEX` where `SEX` is the default as mentioned above. The function will turn variables into factors using the appropriate year's variable levels from my `.rds` file
 
@@ -83,7 +84,9 @@ A default value for the `State`, `Region`, or `Division` being subset on is spec
 
 Finally, a formatted tibble will be returned
 
-Creating the first helper function that converts the `GET()` response object into a `tibble`
+Seeing as I know I'll need to create two helper functions, one to take what is returned by `GET()` and converting it into a formatted `tibble`, and one to parse time strings and return the midpoint as a time value, I will start by creating these helper functions. 
+
+First I will create the first helper function that converts the `GET()` response object into a `tibble`
 ```{r}
 #Creating function
 parse_api_response <- function(response){
@@ -101,7 +104,7 @@ parse_api_response <- function(response){
 }
 ```
 
-Now I am creating the second helper function that will parse time strings if the user inputs either `JWAP` or `JWDP` into midpoints in minutes
+Now I am creating the second helper function with the help of a LLM that will parse time strings if the user inputs either `JWAP` or `JWDP` into midpoints in minutes
 ```{r}
 parse_time_string <- function(time_str){
   #Returns NA if the string is NA, if it is empty, or if it indicates a response that doesn't apply
@@ -109,5 +112,311 @@ parse_time_string <- function(time_str){
      str_detect(time_str,"NA")){
     return(NA_real_)
   }
+  
+  #Extracts all matching HH:MM a.m./p.m. time strings from the text string
+  time_clean <- gsub("\\.","",time_str)
+  
+  pattern <- "(\\d{1,2}):(\\d{2})\\s*([ap]\\.?m\\.?)"
+  
+  times <- str_extract_all(time_clean, pattern)
+  
+  parsed_time <- parse_date_time(times, order = "I:M p", quiet = T)
+  
+  mins <- hour(parsed_time) * 60 + minute(parsed_time)
+    
+  #Checking if two distinct time boundary endpoints were extracted
+  if(length(mins) >= 2){
+    start_min <- mins[1]
+    end_min <- mins[2]
+    
+    midpoint <- (start_min + end_min) / 2
+    
+    return(midpoint %% (24*60))
+  }else{
+    return(mins[1])
+  }
 }
+```
+
+```{r}
+parse_time_string2 <- function(x) {
+  # 1. Guard check for NA, NULL, or non-workers
+  if (is.null(x) || is.na(x) || grepl("^N/A", x, ignore.case = TRUE)) {
+    return(NA_real_)
+  }
+  
+  # 2. Extract hours, minutes, and am/pm markers
+  # Matches "12:00 a.m.", "12:29 am", "12:00 AM", etc.
+  pattern <- "(\\d{1,2}):(\\d{2})\\s*([ap]\\.?m\\.?)"
+  matches <- stringr::str_match_all(tolower(x), pattern)[[1]]
+  
+  if (nrow(matches) == 0) {
+    return(NA_real_)
+  }
+  
+  # 3. Helper to convert extracted match row into minutes from midnight
+  time_to_minutes <- function(match_row) {
+    hr <- as.numeric(match_row[2])
+    mn <- as.numeric(match_row[3])
+    is_pm <- grepl("^p", match_row[4])
+    
+    if (hr == 12) {
+      hr <- if (is_pm) 12 else 0
+    } else if (is_pm) {
+      hr <- hr + 12
+    }
+    
+    return(hr * 60 + mn)
+  }
+  
+  # 4. Calculate minutes from midnight for all times in the range
+  mins <- apply(matches, 1, time_to_minutes)
+  
+  # 5. Compute range midpoint
+  if (length(mins) >= 2) {
+    start_min <- mins[1]
+    end_min <- mins[2]
+    
+    # Handle midnight rollover (e.g., 11:50 p.m. to 12:10 a.m.)
+    if (end_min < start_min) {
+      end_min <- end_min + (24 * 60)
+    }
+    
+    midpoint <- (start_min + end_min) / 2
+    return(midpoint %% (24 * 60))
+  } else {
+    return(mins[1])
+  }
+}
+```
+
+Now that my two helper functions I will need have been created, I can write the function that will query the PUMS API and return a nicely formatted `tibble`. The default values I will use are mentioned above in the beginning of this section.
+```{r}
+get_census_tibble <- function(year = 2024,
+                              numeric_vars = c("AGEP", "PWGTP"),
+                              cat_vars = "SEX",
+                              geo_level = "STATE",
+                              geo_subset = NULL,
+                              key = "9a9b66cf9a9433d327bf8c614f78a681d8df91b2"){
+  
+  #Checking to make sure the value specified for `year` is valid
+  #Making sure the user only inputted one year
+  if(length(year) != 1){
+    #Produces error if more than one year is specified
+    stop("Error: You may only use one value for 'year'")
+  }
+  
+  #Making sure the user used a valid year i.e., 2021, 2022, 2023, 2024
+  if(!year %in% c(2021, 2022, 2023, 2024)){
+    #Produces error if invalid year is specified
+    stop("Error: `year` is not valid. It must be 2021, 2022, 2023, or 2024")
+  }
+  
+  #Checking to make sure the values specified for `numeric_vars` are valid
+  #Defining the acceptable numeric variables
+  accepted_numeric <- c("AGEP", "GASP", "GRPIP", "JWAP", "JWDP", "JWMNP",
+                        "PWGTP")
+  
+  #Making sure that the numeric values inputted by user are valid
+  if(!all(numeric_vars %in% accepted_numeric)){
+    #Produces error if invalid numeric value is specified
+    stop("Error: Invalid numeric variable specified")
+  }
+  
+  #Making sure the PWGTP variable is included
+  if(!"PWGTP" %in% numeric_vars){
+    #Produces error if PWGTP variable is not included
+    stop("Error: Variable 'PWGTP' must be included in `numeric_vars`")
+  }
+  
+  # Making sure at least one other numeric variable along with PWGTP is 
+  # specified. setdiff(numeric_vars, "PWGTP") returns all elements in 
+  # numeric_vars that are not "PWGTP". Therefore if 
+  # length(setdiff(numeric_vars,"PWGTP")) is less than 1, that means that the
+  # only variable used was PWGTP
+  if(length(setdiff(numeric_vars, "PWGTP")) < 1){
+    #Produces error if only "PWGTP" is specified for numeric_vars
+    stop("Error: At least one other numeric variable other than 'PWGTP' must 
+    be specified")
+  }
+  
+  #Checking to make sure the values specified for `cat_vars` are valid
+  #Defining accepted categorical variables
+  accepted_cat <- c("FER", "HHL", "SCH", "SCHL", "SEX")
+  
+  #Making sure the specified categorical variable is accepted
+  if(!all(cat_vars %in% accepted_cat)){
+    #Produces error if invalid categorical variable is specified
+    stop("Error: `cats_var` must be one of `FER`, `HHL`, `SCH`, `SCHL`, or
+         `SEX`")
+  }
+  
+  #Making sure at least one value is specified for `cat_vars`
+  if(length(cat_vars) < 1){
+    #Produces error if no categorical variable is specified
+    stop("Error: `cats_var` must be one of `FER`, `HHL`, `SCH`, `SCHL`, or 
+    `SEX`")
+  }
+  
+  #Checking to make sure the value specified for geo_level is valid. This 
+  #checks to make sure only one geographical level is specified, the user did   #not specify "All", and the user specified one of "Region", "Division", or 
+  #"State"
+  if(length(geo_level) != 1 || geo_level == "All" || 
+     !geo_level %in% c("Region", "Division", "State")){
+    #Produces error if invalid geographical level is specified
+    stop("Error: `geo_level` must be one of `Region`, `Division`, or 
+         `State`")
+  }
+  
+  #Setting `geo_level` specification to the Census API variable name as the
+  #state variable is `ST` for the years 2021 and 2022 and `STATE` for 2023 
+  #and 2024
+  if(geo_level == "State"){
+    geo_param <- ifelse(year %in% c(2021,2022), "ST", "STATE")
+  } else if(geo_level == "Region"){
+    geo_param <- "REGION"
+  } else if(geo_level == "Division"){
+    geo_param <- "DIVISION"
+  }
+  
+  #Specifying default values for the `geo_subset` variable if user provided 
+  #NULL. For ease, the default subset for each geographic level will be 1
+  if(is.null(geo_subset)){
+    if(geo_level == "State"){
+      #Using '01' as the Census State codes are two digits
+      geo_subset <- "01"
+    } else if(geo_level == "Region"){
+      geo_subset <- "1"
+    } else if(geo_level == "Division"){
+      geo_subset <- "1"
+    }
+  }
+  
+  #Formatting the value specified for `geo_subset` to fit the format of the 
+  #API URL. If user specified "All", it will return "*" as that is the symbol
+  #that will return all states, regions, or divisions. If `geo_subset` has 1 
+  #value it will return the value as a string and if it has multiple values,
+  #it will return the value as a comma-separated string
+  if(tolower(geo_subset[1]) == "all"){
+    geo_sub_level <- "*"
+  }else{
+    geo_sub_level <- paste(geo_subset, collapse = ",")
+  }
+  
+  #This part of the function will setup the url and the `GET` function.
+  #The census API is 
+  #https://api.census.gov/data/year/acs/acs1/pums?get=var_names&for=var
+  #Therefore I need a way to automatically apply the variables for get= and
+  #for=
+  #Saving url for the given year specified
+  year_url <- paste0("https://api.census.gov/data/", year, "/acs/acs1/pums")
+  
+  #Combining numeric and categorical variables for get= part of url
+  combined_vars <- unique(c(numeric_vars,cat_vars))
+  
+  #Joining variable names and separating them by commas for get= part of url
+  get_param <- paste(combined_vars, collapse = ",")
+  
+  #Creating the for= part of url so we get for=geo_param:geo_sub_level,
+  #making sure geo_param is lowercase to fit the url structure
+  for_param <- paste0(tolower(geo_param), ":", geo_sub_level)
+  
+  #Calling `GET` function to retrieve API data
+  response <- GET(year_url, query = list(get = get_param, `for` = for_param, 
+                                         key = key))
+  
+  #Saving response variable as a tibble
+  census_tibble <- parse_api_response(response)
+  
+  #Reading in variable values from the `.rds` file I created earlier
+  var_vals <- readRDS("data/pums_variables.rds")
+  
+  #Saving the variable values for the year specified
+  year_vals <- var_vals[[as.character(year)]]
+  
+  #Now I can apply the necessary transformations for the numeric and 
+  #categorical variables respectively. 
+  #Starting with the numeric variables
+  for (num_var in numeric_vars) {
+  if (num_var %in% c("JWAP", "JWDP")) {
+    
+    # 1. Safely retrieve the dictionary (checking $item and $values$item)
+    var_meta <- year_vals[[num_var]]
+    time_dict <- if (!is.null(var_meta$item)) var_meta$item else var_meta$values$item
+    
+    # Guard clause: Stop if metadata couldn't be located
+    if (is.null(time_dict)) {
+      stop(sprintf("Metadata dictionary for '%s' was not found in year_vals. Check str(year_vals[['%s']]).", num_var, num_var))
+    }
+    
+    # 2. Extract values and codes into a named mapping vector
+    label_map <- unname(unlist(time_dict))
+    names(label_map) <- as.character(names(time_dict))
+    
+    # 3. Map raw API character codes directly ("0", "001", etc.)
+    raw_codes <- sprintf("%03d", as.numeric(census_tibble[[num_var]]))
+    time_strings <- label_map[raw_codes]
+    
+    # 4. Use vapply() to enforce a numeric output vector of exact length 53,710
+    census_tibble[[num_var]] <- vapply(
+      time_strings,
+      parse_time_string2,
+      FUN.VALUE = numeric(1),
+      USE.NAMES = FALSE
+    )
+    
+  } else {
+    census_tibble[[num_var]] <- as.numeric(census_tibble[[num_var]])
+  }
+}
+  
+  #Now for the categorical variables
+  for(cat_var in cat_vars){
+    #Saving the variable values from year_vals
+    var_info <- year_vals[[cat_var]]$values$item
+    
+    #Saving the levels from cat_vars using names() as the levels are the 
+    #variable names
+    levels_val <- as.character(names(var_info))
+    
+    #Saving the level labels from cat_vars using unlist() as the labels are 
+    #stored in a list
+    labels_val <- unname(unlist(var_info))
+    
+    #Converting variable to factor with appropriate levels and labels
+    census_tibble[[cat_var]] <- factor(
+      as.character(census_tibble[[cat_var]]), 
+      levels = levels_val,
+      labels = labels_val)
+  }
+  
+  class(census_tibble) <- c("census", class(census_tibble))
+  
+  #Returning the census tibble
+  return(census_tibble)
+}
+```
+
+```{r}
+get_census_tibble(year = 2024, numeric_vars = c("JWDP","PWGTP"), cat_vars = "SCH", geo_level = "State", geo_subset = NULL)
+```
+
+
+
+```{r}
+# for(num_var in numeric_vars){
+#     #Checking if numeric variable is time based (JWAP or JWDP)
+#     if(num_var %in% c("JWAP", "JWDP")){
+#       #Mapping time codes from census_tibble to strings from year_vals using 
+#       #unlist() as the strings from year_vals are in a list
+#       time_codes <- unlist(year_vals[[num_var]]$item)[census_tibble[[num_var]]]
+#       
+#       #Converting strings to midpoint minutes
+#       census_tibble[[num_var]] <- sapply(time_codes, 
+#                                          parse_time_string2)
+#     } else{
+#       #For when num_var is not time based
+#       census_tibble[[num_var]] <- as.numeric(census_tibble[[num_var]])
+#     }
+#   }
 ```
