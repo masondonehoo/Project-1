@@ -15,9 +15,9 @@ library(lubridate)
 library(tidyverse)
 ```
 
-## Task 1: Data Processing
+# Task 1: Data Processing
 
-### Parsing Variable Values
+## Parsing Variable Values
 
 For this section, I am retrieving and parsing metadata for the Public Use Microdata Sample (PUMS) Census API across four years: 2021, 2022, 2023, and 2024. 
 
@@ -66,7 +66,7 @@ if(!dir.exists("data")){
 saveRDS(all_years, file = "data/pums_variables.rds")
 ```
 
-### Parsing API Data
+## Parsing API Data
 
 This function focuses on querying the PUMS API and returning a formatted tibble. I will first write a *helper* function to take what is returned by `GET()` and turn it into a formatted `tibble`. 
 
@@ -398,25 +398,11 @@ get_census_tibble <- function(year = 2024,
 ```
 
 ```{r}
-get_census_tibble(year = 2024, numeric_vars = c("JWDP","PWGTP"), cat_vars = "SCH", geo_level = "State", geo_subset = NULL)
+get_census_tibble(year = 2024, numeric_vars = c("JWDP","PWGTP", "JWAP"), cat_vars = "SCH", geo_level = "State", geo_subset = NULL)
 ```
 
 
 
 ```{r}
-# for(num_var in numeric_vars){
-#     #Checking if numeric variable is time based (JWAP or JWDP)
-#     if(num_var %in% c("JWAP", "JWDP")){
-#       #Mapping time codes from census_tibble to strings from year_vals using 
-#       #unlist() as the strings from year_vals are in a list
-#       time_codes <- unlist(year_vals[[num_var]]$item)[census_tibble[[num_var]]]
-#       
-#       #Converting strings to midpoint minutes
-#       census_tibble[[num_var]] <- sapply(time_codes, 
-#                                          parse_time_string2)
-#     } else{
-#       #For when num_var is not time based
-#       census_tibble[[num_var]] <- as.numeric(census_tibble[[num_var]])
-#     }
-#   }
+pnorm(-5/3)
 ```
