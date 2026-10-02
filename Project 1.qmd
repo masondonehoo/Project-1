@@ -105,48 +105,15 @@ parse_api_response <- function(response){
 ```
 
 Now I am creating the second helper function with the help of a LLM that will parse time strings if the user inputs either `JWAP` or `JWDP` into midpoints in minutes
-```{r}
-parse_time_string <- function(time_str){
-  #Returns NA if the string is NA, if it is empty, or if it indicates a response that doesn't apply
-  if(is.na(time_str) || time_str == "NA" || time_str == "" || 
-     str_detect(time_str,"NA")){
-    return(NA_real_)
-  }
-  
-  #Extracts all matching HH:MM a.m./p.m. time strings from the text string
-  time_clean <- gsub("\\.","",time_str)
-  
-  pattern <- "(\\d{1,2}):(\\d{2})\\s*([ap]\\.?m\\.?)"
-  
-  times <- str_extract_all(time_clean, pattern)
-  
-  parsed_time <- parse_date_time(times, order = "I:M p", quiet = T)
-  
-  mins <- hour(parsed_time) * 60 + minute(parsed_time)
-    
-  #Checking if two distinct time boundary endpoints were extracted
-  if(length(mins) >= 2){
-    start_min <- mins[1]
-    end_min <- mins[2]
-    
-    midpoint <- (start_min + end_min) / 2
-    
-    return(midpoint %% (24*60))
-  }else{
-    return(mins[1])
-  }
-}
-```
 
 ```{r}
-parse_time_string2 <- function(x) {
-  # 1. Guard check for NA, NULL, or non-workers
+parse_time_string <- function(x) {
+  #Check for NA, NULL, or non-workers
   if (is.null(x) || is.na(x) || grepl("^N/A", x, ignore.case = TRUE)) {
     return(NA_real_)
   }
   
-  # 2. Extract hours, minutes, and am/pm markers
-  # Matches "12:00 a.m.", "12:29 am", "12:00 AM", etc.
+  #Extract hours, minutes, and am/pm markers
   pattern <- "(\\d{1,2}):(\\d{2})\\s*([ap]\\.?m\\.?)"
   matches <- stringr::str_match_all(tolower(x), pattern)[[1]]
   
@@ -154,7 +121,7 @@ parse_time_string2 <- function(x) {
     return(NA_real_)
   }
   
-  # 3. Helper to convert extracted match row into minutes from midnight
+  #Helper to convert extracted match row into minutes from midnight
   time_to_minutes <- function(match_row) {
     hr <- as.numeric(match_row[2])
     mn <- as.numeric(match_row[3])
@@ -169,18 +136,13 @@ parse_time_string2 <- function(x) {
     return(hr * 60 + mn)
   }
   
-  # 4. Calculate minutes from midnight for all times in the range
+  #Calculate minutes from midnight for all times in the range
   mins <- apply(matches, 1, time_to_minutes)
   
-  # 5. Compute range midpoint
+  #Compute range midpoint
   if (length(mins) >= 2) {
     start_min <- mins[1]
     end_min <- mins[2]
-    
-    # Handle midnight rollover (e.g., 11:50 p.m. to 12:10 a.m.)
-    if (end_min < start_min) {
-      end_min <- end_min + (24 * 60)
-    }
     
     midpoint <- (start_min + end_min) / 2
     return(midpoint %% (24 * 60))
@@ -340,30 +302,25 @@ get_census_tibble <- function(year = 2024,
   for (num_var in numeric_vars) {
   if (num_var %in% c("JWAP", "JWDP")) {
     
-    # 1. Safely retrieve the dictionary (checking $item and $values$item)
+    #Safely retrieve the dictionary (checking $item and $values$item)
     var_meta <- year_vals[[num_var]]
     time_dict <- if (!is.null(var_meta$item)) var_meta$item else var_meta$values$item
     
-    # Guard clause: Stop if metadata couldn't be located
-    if (is.null(time_dict)) {
-      stop(sprintf("Metadata dictionary for '%s' was not found in year_vals. Check str(year_vals[['%s']]).", num_var, num_var))
-    }
-    
-    # 2. Extract values and codes into a named mapping vector
+    #Extract values and codes into a named mapping vector
     label_map <- unname(unlist(time_dict))
     names(label_map) <- as.character(names(time_dict))
     
-    # 3. Map raw API character codes directly ("0", "001", etc.)
+    #Map raw API character codes directly ("0", "001", etc.)
     raw_codes <- sprintf("%03d", as.numeric(census_tibble[[num_var]]))
     time_strings <- label_map[raw_codes]
     
-    # 4. Use vapply() to enforce a numeric output vector of exact length 53,710
-    census_tibble[[num_var]] <- vapply(
-      time_strings,
-      parse_time_string2,
-      FUN.VALUE = numeric(1),
-      USE.NAMES = FALSE
-    )
+    numeric_results <- numeric(length(time_strings))
+    
+    for (i in seq_along(time_strings)){
+      numeric_results[i] <- parse_time_string(time_strings[i])
+    }
+    
+    census_tibble[[num_var]] <- numeric_results
     
   } else {
     census_tibble[[num_var]] <- as.numeric(census_tibble[[num_var]])
@@ -397,12 +354,20 @@ get_census_tibble <- function(year = 2024,
 }
 ```
 
+Now that my function for creating a census tibble for a single year has been finished, I can now create the function that will let the user read in more than one year.
+
+```{r}
+get_
+```
+
+
+
 ```{r}
 get_census_tibble(year = 2024, numeric_vars = c("JWDP","PWGTP", "JWAP"), cat_vars = "SCH", geo_level = "State", geo_subset = NULL)
 ```
 
 
 
-```{r}
-pnorm(-5/3)
-```
+
+
+
