@@ -178,13 +178,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="co">#Iterating across each year and saving the lists of the variables with their values</span></span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>all_years <span class="ot">&lt;-</span> <span class="fu">setNames</span>(<span class="fu">lapply</span>(years, parse_year_metadata), <span class="fu">as.character</span>(years))</span>
 <span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="co">#Creating data folder in my repo</span></span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span>(<span class="sc">!</span><span class="fu">dir.exists</span>(<span class="st">"data"</span>)){</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>   <span class="fu">dir.create</span>(<span class="st">"data"</span>)</span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="co">#Saving the lists in a .rds file under the data folder in my repo</span></span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(all_years, <span class="at">file =</span> <span class="st">"data/pums_variables.rds"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="co">#Creating data folder in my repo, but doesn't create a new one every</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="co">#time if one exists already</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span>(<span class="sc">!</span><span class="fu">dir.exists</span>(<span class="st">"data"</span>)){</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>   <span class="fu">dir.create</span>(<span class="st">"data"</span>)</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a><span class="co">#Saving the lists in a .rds file under the data folder in my repo</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(all_years, <span class="at">file =</span> <span class="st">"data/pums_variables.rds"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="parsing-api-data" class="level2">
@@ -627,112 +628,150 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(p)</span>
 <span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
+<p>Now we have our generic <code>plot()</code> function for a <strong>census</strong> class!</p>
+<p>I have created every function that was laid out for me in the project guidelines, and now it’s time to investigate and make sure everything is working properly</p>
+</section>
+</section>
+<section id="investigation" class="level1">
+<h1>Investigation</h1>
+<p>Let’s start by checking my <code>get_census_tibble</code> function. I’m interested in looking at the 2024 census, I know I have to include PWGTP, and I also want to see what one of the time variables looks like. Additionally, I’m gonna leave my geo_subset option blank, to make sure it is returning the default value I set (01).</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>census_2024 <span class="ot">&lt;-</span> <span class="fu">get_census_tibble</span>(<span class="at">year =</span> <span class="dv">2024</span>, <span class="at">numeric_vars =</span> <span class="fu">c</span>(<span class="st">"JWDP"</span>,<span class="st">"PWGTP"</span>, <span class="st">"GASP"</span>), <span class="at">cat_vars =</span> <span class="st">"SCHL"</span>, <span class="at">geo_level =</span> <span class="st">"State"</span>, <span class="at">geo_subset =</span> <span class="cn">NULL</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">get_multi_year_census</span>(<span class="at">years =</span> <span class="fu">c</span>(<span class="dv">2021</span>, <span class="dv">2022</span>), </span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>                      <span class="at">numeric_vars =</span> <span class="fu">c</span>(<span class="st">"JWAP"</span>, <span class="st">"PWGTP"</span>),</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>                      <span class="at">cat_vars =</span> <span class="st">"SCH"</span>,</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>                      <span class="at">geo_level =</span> <span class="st">"State"</span>,</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>                      <span class="at">geo_subset =</span> <span class="cn">NULL</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>census_2024 <span class="ot">&lt;-</span> <span class="fu">get_census_tibble</span>(<span class="at">year =</span> <span class="dv">2024</span>, </span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">numeric_vars =</span> <span class="fu">c</span>(<span class="st">"JWAP"</span>,<span class="st">"PWGTP"</span>, </span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>                                                  <span class="st">"AGEP"</span>), </span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">cat_vars =</span> <span class="st">"FER"</span>, </span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">geo_level =</span> <span class="st">"State"</span>, </span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">geo_subset =</span> <span class="cn">NULL</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>census_2024</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 101,227 × 5
-    year  JWAP PWGTP SCH                                           state
-   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt;                                         &lt;chr&gt;
- 1  2021    NA    13 No, has not attended in the last 3 months     01   
- 2  2021    NA    51 No, has not attended in the last 3 months     01   
- 3  2021    NA    17 No, has not attended in the last 3 months     01   
- 4  2021    NA    61 Yes, private school or college or home school 01   
- 5  2021    NA    15 No, has not attended in the last 3 months     01   
- 6  2021    NA    46 Yes, public school or public college          01   
- 7  2021    NA    55 No, has not attended in the last 3 months     01   
- 8  2021    NA    31 No, has not attended in the last 3 months     01   
- 9  2021    NA    71 No, has not attended in the last 3 months     01   
-10  2021  1147    48 Yes, public school or public college          01   
-# ℹ 101,217 more rows</code></pre>
+<pre><code># A tibble: 53,710 × 5
+    JWAP PWGTP  AGEP FER                                                  state
+   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt;                                                &lt;chr&gt;
+ 1    NA    41    59 N/A (less than 15 years/greater than 50 years/ male) 01   
+ 2    NA    52    43 N/A (less than 15 years/greater than 50 years/ male) 01   
+ 3    NA    31    75 N/A (less than 15 years/greater than 50 years/ male) 01   
+ 4    NA     4    22 No                                                   01   
+ 5    NA    19    51 N/A (less than 15 years/greater than 50 years/ male) 01   
+ 6    NA    64    20 N/A (less than 15 years/greater than 50 years/ male) 01   
+ 7    NA    56    66 N/A (less than 15 years/greater than 50 years/ male) 01   
+ 8    NA    40    28 N/A (less than 15 years/greater than 50 years/ male) 01   
+ 9    NA    74    18 No                                                   01   
+10    NA    40    64 N/A (less than 15 years/greater than 50 years/ male) 01   
+# ℹ 53,700 more rows</code></pre>
 </div>
 </div>
+<p>Everything looks good! The NA values in JWAP are from the observations that are coded 0 in the PUMS Census API, the factors for FER are working correctly, and it is automatically setting the state subset to 01.</p>
+<p>Let’s look at the <code>get_multi_year_census</code> function now. I want to make sure there’s observations from both years I specify, as well as checking my Region geographical level.</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary.census</span>(census_2024)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>census_2021_2022 <span class="ot">&lt;-</span> <span class="fu">get_multi_year_census</span>(<span class="at">years =</span> <span class="fu">c</span>(<span class="dv">2021</span>, <span class="dv">2022</span>), </span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>                      <span class="at">numeric_vars =</span> <span class="fu">c</span>(<span class="st">"GASP"</span>, <span class="st">"PWGTP"</span>),</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>                      <span class="at">cat_vars =</span> <span class="st">"SCH"</span>,</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>                      <span class="at">geo_level =</span> <span class="st">"Region"</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>                      <span class="at">geo_subset =</span> <span class="cn">NULL</span>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>census_2021_2022 <span class="sc">%&gt;%</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(year) <span class="sc">%&gt;%</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice_head</span>(<span class="at">n =</span> <span class="dv">5</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 5
+# Groups:   year [2]
+    year  GASP PWGTP SCH                                           region
+   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt;                                         &lt;chr&gt; 
+ 1  2021     3     6 Yes, private school or college or home school 1     
+ 2  2021     3    70 No, has not attended in the last 3 months     1     
+ 3  2021     3    61 Yes, private school or college or home school 1     
+ 4  2021     3    82 Yes, public school or public college          1     
+ 5  2021     3    34 No, has not attended in the last 3 months     1     
+ 6  2022     3    31 Yes, public school or public college          1     
+ 7  2022     3    24 No, has not attended in the last 3 months     1     
+ 8  2022     3    21 No, has not attended in the last 3 months     1     
+ 9  2022     3    48 Yes, private school or college or home school 1     
+10  2022     3    72 No, has not attended in the last 3 months     1     </code></pre>
+</div>
+</div>
+<p>As we can see by specifying the first 5 observations for 2021 and the first 5 for 2022, it has combined both tibbles! The SCH variable is printing with the different factor levels properly as well, so everything looks good for this function.</p>
+<p>Moving on to the <code>summary.census</code> function, I’m checking to make sure it’s printing accurate counts and weighted means and standard deviations, as well as making sure the type of the function call is a list.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>summary_2024 <span class="ot">&lt;-</span> <span class="fu">summary.census</span>(census_2024)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>summary_2024</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>$numeric_summaries
-        mean       sd
-GASP 46.0602 120.3232
+         mean       sd
+AGEP 39.89105 23.57701
 
 $categorical_summaries
-$categorical_summaries$SCHL
+$categorical_summaries$FER
 cat_vector
-                   Regular high school diploma 
-                                         11389 
-                        No schooling completed 
-                                             0 
-                                       Grade 1 
-                                             0 
-                                  Kindergarten 
-                                             0 
-                                       Grade 4 
-                                             0 
-Professional degree beyond a bachelor's degree 
-                                           718 
-  1 or more years of college credit, no degree 
-                                          6308 
-                               Master's degree 
-                                          3261 
-                                       Grade 7 
-                                           772 
-                            Associate's degree 
-                                          4008 
-                   N/A (less than 3 years old) 
-                                          1413 
-                     Nursery school, preschool 
-                                             0 
-                             Bachelor's degree 
-                                          7043 
-                                       Grade 5 
-                                             0 
-                              Doctorate degree 
-                                           572 
-                                       Grade 3 
-                                             0 
-                                      Grade 11 
-                                          1557 
-                 GED or alternative credential 
-                                          2356 
-                                       Grade 9 
-                                          1151 
-                       12th grade - no diploma 
-                                           960 
-                                      Grade 10 
-                                          1436 
-                                       Grade 2 
-                                             0 
-                                       Grade 8 
-                                          1007 
-            Some college, but less than 1 year 
-                                          3363 
-                                       Grade 6 
-                                             0 
+N/A (less than 15 years/greater than 50 years/ male) 
+                                               42557 
+                                                  No 
+                                               10588 
+                                                 Yes 
+                                                 565 
 
 $categorical_summaries$state
 cat_vector
    01 
 53710 </code></pre>
 </div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">typeof</span>(summary_2024)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "list"</code></pre>
 </div>
+</div>
+<p>This looks good as well! The average age makes sense and no errors come up when running it, we can see accurate counts for Females who have given birth in the past 12 months.</p>
+<p>Let’s also make sure it works for our tibble with more than one year in it.</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot.census</span>(census_2024, <span class="at">numeric_var =</span> <span class="st">"GASP"</span>, <span class="at">cat_var =</span> <span class="st">"SCHL"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>summary_2021_2022 <span class="ot">&lt;-</span> <span class="fu">summary.census</span>(census_2021_2022)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>summary_2021_2022</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$numeric_summaries
+         mean       sd
+GASP 79.71449 150.7295
+
+$categorical_summaries
+$categorical_summaries$SCH
+cat_vector
+                  N/A (less than 3 years old) 
+                                        29619 
+Yes, private school or college or home school 
+                                        69710 
+    No, has not attended in the last 3 months 
+                                       882045 
+         Yes, public school or public college 
+                                       182500 
+
+$categorical_summaries$region
+cat_vector
+      1 
+1163874 
+
+$categorical_summaries$year
+cat_vector
+  2021   2022 
+577905 585969 </code></pre>
+</div>
+</div>
+<p>Perfect! This is super helpful because it tells us exactly how many observations there are for each year in the tibble. The GASP variable is interesting because when it takes the value 3, it is considered NA, but if it isn’t three, it is between 4:9999, representing the amount spent on gas every month. That explains why the standard deviation is so high, because there is such a wide range the GASP variable can take</p>
+<p>Let’s get a look at the graphical summary of this 2024 census I have been looking at.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot.census</span>(census_2024, <span class="at">numeric_var =</span> <span class="st">"AGEP"</span>, <span class="at">cat_var =</span> <span class="st">"FER"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="Project-1_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="Project-1_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-
-
+<p>This gives us a really clear look into what the average age is for people who fall under each category. Looking at women who have given birth in the past 12 months, it makes sense for the mean to be around 28 and the IQR to be pretty small, as the chance of a woman getting pregnant naturally declines as they get older.</p>
 </section>
+<section id="conclusion" class="level1">
+<h1>Conclusion</h1>
+<p>I have investigated all of my functions, ensuring they work, and got to do some really cool exploratory data analysis with a huge data set like the PUMS Census API. This was a super fun project that got me familiar with API’s, something I have had no experience with before this class. As they become more and more prevalent in data science, it’s important for me to understand how they work and how they differ from traditional data sets.</p>
+
+
 </section>
 
 </main> <!-- /main -->
