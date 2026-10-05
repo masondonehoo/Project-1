@@ -15,11 +15,11 @@ library(lubridate)
 library(tidyverse)
 ```
 
-# Task 1: Data Processing
+# Part 1: Data Processing
 
 ## Parsing Variable Values
 
-For this section, I am retrieving and parsing metadata for the Public Use Microdata Sample (PUMS) Census API across four years: 2021, 2022, 2023, and 2024. 
+For this section, I am retrieving and parsing metadata for the Public Use Microdata Sample (PUMS) Census API across four years: 2021, 2022, 2023, and 2024.
 
 The variables we are interested in are `AGEP`, `GASP`, `GRPIP`, `JWAP`, `JWDP`, `JWMNP`, `PWGTP`, `FER`, `HHL`, `SCH`, `SCHL`, `SEX`, `ST` (for 2021, 2022)/`STATE` (for 2023, 2024), `REGION`, and `DIVISION`. The variables for each year will be stored in a list that will then be saved in a `.rds` file under the `docs` folder.
 
@@ -57,7 +57,8 @@ years <- c(2021, 2022, 2023, 2024)
 #Iterating across each year and saving the lists of the variables with their values
 all_years <- setNames(lapply(years, parse_year_metadata), as.character(years))
 
-#Creating data folder in my repo
+#Creating data folder in my repo, but doesn't create a new one every
+#time if one exists already
 if(!dir.exists("data")){
    dir.create("data")
   }
@@ -68,13 +69,13 @@ saveRDS(all_years, file = "data/pums_variables.rds")
 
 ## Parsing API Data
 
-This function focuses on querying the PUMS API and returning a formatted tibble. I will first write a *helper* function to take what is returned by `GET()` and turn it into a formatted `tibble`. 
+This function focuses on querying the PUMS API and returning a formatted tibble. I will first write a *helper* function to take what is returned by `GET()` and turn it into a formatted `tibble`.
 
-The *helper* function will be wrapped into a function that will query the API. The function will have the following default values: survey year `2024`, the numerical variables `AGEP` and `PWGTP`, the categorical variable `SEX`, and geography level `State`. 
+The *helper* function will be wrapped into a function that will query the API. The function will have the following default values: survey year `2024`, the numerical variables `AGEP` and `PWGTP`, the categorical variable `SEX`, and geography level `State`.
 
-The valid values for year are: 2021, 2022, 2023, and 2024 
+The valid values for year are: 2021, 2022, 2023, and 2024
 
-For the numerical variables, `PWGTP` is always returned along with one other numerical variable: `AGEP`, `GASP`, `GRPIP`, `JWAP` (time), `JWDP` (time), and `JWMNP`. The function will turn variables into numeric values or time values when it is appropriate. For time values (i.e., `JWAP` and `JWDP`), a helper function is written to parse the time strings and return the midpoint as a time value and NA for missing time values
+For the numerical variables, `PWGTP` is always returned along with at least one other numerical variable: `AGEP`, `GASP`, `GRPIP`, `JWAP` (time), `JWDP` (time), and `JWMNP`. The function will turn variables into numeric values or time values when it is appropriate. For time values (i.e., `JWAP` and `JWDP`), a helper function is written to parse the time strings and return the midpoint as a time value and NA for missing time values
 
 For the categorical variables, the options for the user are: `FER`, `HHL`, `SCH`, `SCHL`, and `SEX` where `SEX` is the default as mentioned above. The function will turn variables into factors using the appropriate year's variable levels from my `.rds` file
 
@@ -84,9 +85,10 @@ A default value for the `State`, `Region`, or `Division` being subset on is spec
 
 Finally, a formatted tibble will be returned
 
-Seeing as I know I'll need to create two helper functions, one to take what is returned by `GET()` and converting it into a formatted `tibble`, and one to parse time strings and return the midpoint as a time value, I will start by creating these helper functions. 
+Seeing as I know I'll need to create two helper functions, one to take what is returned by `GET()` and converting it into a formatted `tibble`, and one to parse time strings and return the midpoint as a time value, I will start by creating these helper functions.
 
 First I will create the first helper function that converts the `GET()` response object into a `tibble`
+
 ```{r}
 #Creating function
 parse_api_response <- function(response){
@@ -153,6 +155,7 @@ parse_time_string <- function(x) {
 ```
 
 Now that my two helper functions I will need have been created, I can write the function that will query the PUMS API and return a nicely formatted `tibble`. The default values I will use are mentioned above in the beginning of this section.
+
 ```{r}
 get_census_tibble <- function(year = 2024,
                               numeric_vars = c("AGEP", "PWGTP"),
@@ -230,11 +233,9 @@ get_census_tibble <- function(year = 2024,
          `State`")
   }
   
-  #Setting `geo_level` specification to the Census API variable name as the
-  #state variable is `ST` for the years 2021 and 2022 and `STATE` for 2023 
-  #and 2024
+  #Setting `geo_level` specification to the Census API variable name 
   if(geo_level == "State"){
-    geo_param <- ifelse(year %in% c(2021,2022), "ST", "STATE")
+    geo_param <- "STATE"
   } else if(geo_level == "Region"){
     geo_param <- "REGION"
   } else if(geo_level == "Division"){
@@ -268,8 +269,8 @@ get_census_tibble <- function(year = 2024,
   #This part of the function will setup the url and the `GET` function.
   #The census API is 
   #https://api.census.gov/data/year/acs/acs1/pums?get=var_names&for=var
-  #Therefore I need a way to automatically apply the variables for get= and
-  #for=
+  #Therefore I need a way to automatically apply the variables for 
+  #get= and for=
   #Saving url for the given year specified
   year_url <- paste0("https://api.census.gov/data/", year, "/acs/acs1/pums")
   
@@ -284,7 +285,8 @@ get_census_tibble <- function(year = 2024,
   for_param <- paste0(tolower(geo_param), ":", geo_sub_level)
   
   #Calling `GET` function to retrieve API data
-  response <- GET(year_url, query = list(get = get_param, `for` = for_param, 
+  response <- GET(year_url, query = list(get = get_param, 
+                                         `for` = for_param, 
                                          key = key))
   
   #Saving response variable as a tibble
@@ -330,7 +332,9 @@ get_census_tibble <- function(year = 2024,
   #Now for the categorical variables
   for(cat_var in cat_vars){
     #Saving the variable values from year_vals
-    var_info <- year_vals[[cat_var]]$values$item
+    var_meta <- year_vals[[cat_var]]
+    var_info <- if (!is.null(var_meta$item)) var_meta$item else 
+      var_meta$values$item
     
     #Saving the levels from cat_vars using names() as the levels are the 
     #variable names
@@ -347,6 +351,11 @@ get_census_tibble <- function(year = 2024,
       labels = labels_val)
   }
   
+  #Changes "ST" to "STATE" for 2021 and 2022
+  if ("ST" %in% names(census_tibble)){
+    census_tibble <- rename(census_tibble, STATE = ST)
+  }
+  
   class(census_tibble) <- c("census", class(census_tibble))
   
   #Returning the census tibble
@@ -354,20 +363,236 @@ get_census_tibble <- function(year = 2024,
 }
 ```
 
+## Combining Years
+
 Now that my function for creating a census tibble for a single year has been finished, I can now create the function that will let the user read in more than one year.
 
 ```{r}
-get_
+get_multi_year_census <- function(years, ...){
+  
+  #Iterates over each year user inputted
+  list_of_tibbles <- lapply(years, function(y){
+    
+    #Creates a tibble for the year we selected and passes other
+    #variables specified variables through
+    df <- get_census_tibble(year = y, ...)
+    
+    #Removing the "census" class of the data frame because I was 
+    #getting an error when I didn't remove it
+    class(df) <- setdiff(class(df), "census")
+    
+    #Adding a variable indicating what year the data is from
+    df <- mutate(df, year = y, .before = 1)
+    
+    return(df)
+  })
+  
+  #Binding the rows of each tibble that was created
+  combined_tibble <- bind_rows(list_of_tibbles)
+  
+  #Adding back the custom "census" class to the combined tibble
+  class(combined_tibble) <- c("census", class(combined_tibble))
+  
+  return(combined_tibble)
+}
 ```
 
+# Part 2: Writing a Generic Function for Summarizing
 
+Now that we're able to grab data from the PUMS API and save it in a tibble, we want to be able to summarize that data. This section of the project will do exactly that.
+
+## Numeric Summaries
+
+This function will produce means for our numerical variables (ignoring the time variables) and counts for our categorical variables, treating years as categorical.
+
+The function will take three arguments: the census tibble, the numeric variables to summarize, and the categorical variables to get counts for. By default it will summarize all of the numeric and categorical variables, but the user will also be able to select which variables they want to get summaries for.
 
 ```{r}
-get_census_tibble(year = 2024, numeric_vars = c("JWDP","PWGTP", "JWAP"), cat_vars = "SCH", geo_level = "State", geo_subset = NULL)
+summary.census <- function(object, numeric_vars = NULL, 
+                           cat_vars = NULL, ...){
+  
+  #Setting the weight vector to the vector of PWGTP 
+  weight_vector <- object[["PWGTP"]]
+  
+  if (is.null(numeric_vars)){
+    #Saving all of the numeric variables in the tibble
+    all_numeric <- names(object)[sapply(object, is.numeric)]
+    
+    #Removing PWGTP and any time-based variables. Also removing year
+    #so it can be treated as categorical
+    numeric_vars <- setdiff(all_numeric, c("PWGTP", "JWAP", "JWDP",
+                                           "year"))
+  }
+  
+  if (is.null(cat_vars)){
+    #Saving all of the columns in the tibble as we can't check if
+    #a variable is a factor or character in the same line
+    all_cols <- names(object)
+    
+    #Now checking to see if each column pulled through is either a 
+    #character or factor
+    cat_vars <- all_cols[sapply(object, function(col) 
+      is.factor(col) || is.character(col))]
+    
+    #Makes sure year is treated as categorical
+    if ("year" %in% all_cols && !"year" %in% cat_vars){
+      cat_vars <- c(cat_vars, "year")
+    }
+  }
+  
+  #Initializing list to save summaries in
+  summary_list <- list()
+  
+  #Calculating weighted means and standard deviations
+  if (length(numeric_vars) > 0){
+    #Initializing list to save numeric summaries in
+    num_list <- list()
+    
+    #Looping through each numeric variable and calculating the mean
+    #and standard deviation
+    for (var in numeric_vars){
+      numeric_vector <- object[[var]]
+      
+      #Calculating weighted mean using sum(x*w) / sum(w)
+      weighted_mean <- sum(numeric_vector * weight_vector, na.rm = T) / sum(weight_vector, na.rm = T)
+      
+      #Calculating weighted standard deviation using 
+      #sqrt(sum(x^2*w)/sum(w)-weighted_mean^2)
+      weighted_sd <- sqrt((sum((numeric_vector^2) * weight_vector, 
+                               na.rm = TRUE) / 
+                             sum(weight_vector, na.rm = TRUE)) - 
+                            (weighted_mean^2))
+      
+      #Saving weighted mean and standard deviation calculation
+      num_list[[var]] <- c(mean = weighted_mean, sd = weighted_sd)
+    }
+    
+    #Combining into data frame
+    summary_list[["numeric_summaries"]] <- do.call(rbind, num_list)
+  }
+  
+  #Calculating counts for categorical variables
+  if (length(cat_vars) > 0){
+    #Initializing list to save counts in
+    cat_list <- list()
+    
+    #Looping through each categorical variable
+    for (var in cat_vars){
+      #Converting to factor for proper counting
+      cat_vector <- as.factor(object[[var]])
+      cat_list[[var]] <- table(cat_vector)
+    }
+    
+    summary_list[["categorical_summaries"]] <- cat_list
+  }
+  
+  return(summary_list)
+}
 ```
 
+And now we should be able to get numerical summaries for any variables in our tibble!
 
+Let's move on to the graphical summaries now.
 
+## Graphical Summaries
 
+Now I'm gonna make a generic `plot()` function for a **census** class tibble. The user is required to specify one categorical and one numerical variable. The function will create a boxplot of the numerical variable at the different levels of the categorical variable.
 
+```{r}
+plot.census <- function(object, numeric_var, cat_var){
+  #Checking to make sure one numeric variable was specified
+  if (missing(numeric_var) || length(numeric_var) != 1 || 
+      !is.character(numeric_var)){
+    stop("Error: You must specify one numeric variable as a string.")
+  }
+  
+  #Checking to make sure one categorical variable was specified
+  if (missing(cat_var) || length(cat_var) != 1 || 
+      !is.character(cat_var)){
+    stop("Error: You must specify one categorical variable as a 
+         string")
+  }
+  
+  #Creating boxplot with aes(weight = PWGTP)
+  p <- ggplot(object, aes(x = as.factor(get(cat_var)), 
+                          y = get(numeric_var),
+                          weight = PWGTP)) +
+    geom_boxplot(fill = "navyblue", alpha = 0.7, 
+                 color = "darkgreen") +
+    labs(x = cat_var, y = numeric_var, 
+         title = paste("Weighted Boxplot of", numeric_var, "by", 
+                       cat_var)) +
+    theme_minimal()
+  
+  return(p)
+}
+```
+
+Now we have our generic `plot()` function for a **census** class!
+
+I have created every function that was laid out for me in the project guidelines, and now it's time to investigate and make sure everything is working properly
+
+# Investigation
+
+Let's start by checking my `get_census_tibble` function. I'm interested in looking at the 2024 census, I know I have to include PWGTP, and I also want to see what one of the time variables looks like. Additionally, I'm gonna leave my geo_subset option blank, to make sure it is returning the default value I set (01).
+
+```{r}
+census_2024 <- get_census_tibble(year = 2024, 
+                                 numeric_vars = c("JWAP","PWGTP", 
+                                                  "AGEP"), 
+                                 cat_vars = "FER", 
+                                 geo_level = "State", 
+                                 geo_subset = NULL)
+
+census_2024
+```
+
+Everything looks good! The NA values in JWAP are from the observations that are coded 0 in the PUMS Census API, the factors for FER are working correctly, and it is automatically setting the state subset to 01.
+
+Let's look at the `get_multi_year_census` function now. I want to make sure there's observations from both years I specify, as well as checking my Region geographical level.
+
+```{r}
+census_2021_2022 <- get_multi_year_census(years = c(2021, 2022), 
+                      numeric_vars = c("GASP", "PWGTP"),
+                      cat_vars = "SCH",
+                      geo_level = "Region",
+                      geo_subset = NULL)
+
+census_2021_2022 %>%
+  group_by(year) %>%
+  slice_head(n = 5)
+```
+
+As we can see by specifying the first 5 observations for 2021 and the first 5 for 2022, it has combined both tibbles! The SCH variable is printing with the different factor levels properly as well, so everything looks good for this function.
+
+Moving on to the `summary.census` function, I'm checking to make sure it's printing accurate counts and weighted means and standard deviations, as well as making sure the type of the function call is a list.
+
+```{r}
+summary_2024 <- summary.census(census_2024)
+summary_2024
+
+typeof(summary_2024)
+```
+
+This looks good as well! The average age makes sense and no errors come up when running it, we can see accurate counts for Females who have given birth in the past 12 months. 
+
+Let's also make sure it works for our tibble with more than one year in it.
+
+```{r}
+summary_2021_2022 <- summary.census(census_2021_2022)
+summary_2021_2022
+```
+
+Perfect! This is super helpful because it tells us exactly how many observations there are for each year in the tibble. The GASP variable is interesting because when it takes the value 3, it is considered NA, but if it isn't three, it is between 4:9999, representing the amount spent on gas every month. That explains why the standard deviation is so high, because there is such a wide range the GASP variable can take
+
+Let's get a look at the graphical summary of this 2024 census I have been looking at.
+
+```{r}
+plot.census(census_2024, numeric_var = "AGEP", cat_var = "FER")
+```
+This gives us a really clear look into what the average age is for people who fall under each category. Looking at women who have given birth in the past 12 months, it makes sense for the mean to be around 28 and the IQR to be pretty small, as the chance of a woman getting pregnant naturally declines as they get older. 
+
+# Conclusion
+
+I have investigated all of my functions, ensuring they work, and got to do some really cool exploratory data analysis with a huge data set like the PUMS Census API. This was a super fun project that got me familiar with API's, something I have had no experience with before this class. As they become more and more prevalent in data science, it's important for me to understand how they work and how they differ from traditional data sets.
 
